@@ -311,6 +311,7 @@ void TCPGameServer(const std::string& IP, int Port) {
         else
             debug("(Proxy) recv failed error : " + std::to_string(WSAGetLastError()));
     }
+    debug("Client Shutting Down.");
     TCPTerminate = true;
     GConnected = false;
     Terminate = true;
