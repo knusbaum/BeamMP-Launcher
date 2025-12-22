@@ -438,6 +438,13 @@ void CoreMain() {
         WSACleanup();
         return;
     }
+    if (setsockopt(LSocket, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0) {
+      error("(Core) setsockopt failed with error: " + std::to_string(WSAGetLastError()));
+      freeaddrinfo(res);
+      KillSocket(LSocket);
+      WSACleanup();
+      return;
+    }
     iRes = bind(LSocket, res->ai_addr, int(res->ai_addrlen));
     if (iRes == SOCKET_ERROR) {
         error("(Core) bind failed with error: " + std::to_string(WSAGetLastError()));
