@@ -181,7 +181,7 @@ SOCKET SetupListener() {
       freeaddrinfo(result);
       KillSocket(GSocket);
       WSACleanup();
-      return;
+      return -1;
     }
     iRes = bind(GSocket, result->ai_addr, (int)result->ai_addrlen);
     if (iRes == SOCKET_ERROR) {
