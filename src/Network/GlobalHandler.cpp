@@ -178,8 +178,8 @@ SOCKET SetupListener() {
     int x = 1;
     if (setsockopt(GSocket, SOL_SOCKET, SO_REUSEADDR, &x, sizeof(int)) < 0) {
       error("(Proxy) setsockopt failed with error: " + std::to_string(WSAGetLastError()));
-      freeaddrinfo(res);
-      KillSocket(LSocket);
+      freeaddrinfo(result);
+      KillSocket(GSocket);
       WSACleanup();
       return;
     }
