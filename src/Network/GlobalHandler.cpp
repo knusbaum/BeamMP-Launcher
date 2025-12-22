@@ -175,6 +175,13 @@ SOCKET SetupListener() {
         WSACleanup();
         return -1;
     }
+    if (setsockopt(GSocket, SOL_SOCKET, SO_REUSEADDR, 1, sizeof(int)) < 0) {
+      error("(Proxy) setsockopt failed with error: " + std::to_string(WSAGetLastError()));
+      freeaddrinfo(res);
+      KillSocket(LSocket);
+      WSACleanup();
+      return;
+    }
     iRes = bind(GSocket, result->ai_addr, (int)result->ai_addrlen);
     if (iRes == SOCKET_ERROR) {
         error("(Proxy) bind failed with error: " + std::to_string(WSAGetLastError()));
