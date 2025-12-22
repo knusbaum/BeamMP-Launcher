@@ -101,6 +101,7 @@ void UDPClientMain(const std::string& IP, int Port) {
     debug("Starting UDP receive loop");
     while (!Terminate) {
         UDPRcv();
+	debug("UDP receive loop received a message.");
     }
     debug("UDP receive loop done");
     KillSocket(UDPSock);
