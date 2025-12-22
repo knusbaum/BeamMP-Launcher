@@ -438,7 +438,8 @@ void CoreMain() {
         WSACleanup();
         return;
     }
-    if (setsockopt(LSocket, SOL_SOCKET, SO_REUSEADDR, 1, sizeof(int)) < 0) {
+    int x = 1;
+    if (setsockopt(LSocket, SOL_SOCKET, SO_REUSEADDR, &x, sizeof(int)) < 0) {
       error("(Core) setsockopt failed with error: " + std::to_string(WSAGetLastError()));
       freeaddrinfo(res);
       KillSocket(LSocket);
