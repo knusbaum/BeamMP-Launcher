@@ -37,8 +37,8 @@
 
 extern int TraceBack;
 std::set<std::string>* ConfList = nullptr;
-bool TCPTerminate = false;
-bool Terminate = false;
+volatile bool TCPTerminate = false;
+volatile bool Terminate = false;
 bool LoginAuth = false;
 std::string Username = "";
 std::string UserRole = "";
