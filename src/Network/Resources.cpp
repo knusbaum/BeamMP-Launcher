@@ -748,6 +748,7 @@ bool SyncResources(TCPGameClient& tgc) {
         syncResources(tgc);
     } catch (SyncError e) {
         debug("SyncError Occurred.");
+        UlStatus = "UlResource Synchronization Failed.";
         return false;
     }
     return true;

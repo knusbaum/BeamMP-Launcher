@@ -128,7 +128,6 @@ void GameServer::NetReset() {
     TCPTerminate = false;
     GConnected = false;
     Terminate = false;
-    UlStatus = "Ulstart";
     MStatus = " ";
     if (UDPSock != (SOCKET)(-1)) {
         debug("Terminating UDP Socket: " + std::to_string(UDPSock));
@@ -201,13 +200,29 @@ SOCKET SetupListener() {
     }
     return GSocket;
 }
-void AutoPing(TCPGameClient *tgc) {
-    while (!Terminate) {
-        ServerSend(*tgc, "p", false);
-        PingStart = std::chrono::high_resolution_clock::now();
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+class AutoPing {
+    std::atomic<bool> run;
+    TCPGameClient& tgc;
+    std::thread T;
+    void start() {
+        while (run) {
+            ServerSend(tgc, "p", false);
+            PingStart = std::chrono::high_resolution_clock::now();
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
     }
-}
+public:
+    AutoPing(TCPGameClient& tgc)
+        : tgc(tgc) {
+        run = true;
+        T = std::thread(&AutoPing::start, this);
+    }
+    ~AutoPing() {
+        run = false;
+        T.join();
+    }
+};
+
 int ClientID = -1;
 void ParserAsync(std::string_view Data) {
     if (Data.empty())
@@ -239,8 +254,6 @@ void ServerParser(std::string_view Data) {
 }
 
 void NetMain(TCPGameClient *tgc, const std::string& IP, int Port) {
-    std::thread Ping(AutoPing, tgc);
-    Ping.detach();
     UDPClientMain(tgc, IP, Port);
     CServer = true;
     Terminate = true;
@@ -273,6 +286,8 @@ void GameServer::Run() {
 void GameServer::start() {
     GSocket = SetupListener();
     std::unique_ptr<std::thread> NetMainThread {};
+    AutoPing ap(tgc);
+
     while (!TCPTerminate && GSocket != -1) {
         debug("MAIN LOOP OF GAME SERVER");
         GConnected = false;
