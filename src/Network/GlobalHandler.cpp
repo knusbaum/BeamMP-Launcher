@@ -135,11 +135,6 @@ void GameServer::NetReset() {
         KillSocket(UDPSock);
     }
     UDPSock = -1;
-    // if (TCPSock != (SOCKET)(-1)) {
-    //     debug("Terminating TCP Socket: " + std::to_string(TCPSock));
-    //     KillSocket(TCPSock);
-    // }
-    // TCPSock = -1;
     tgc.Stop();
     if (GSocket != (SOCKET)(-1)) {
         debug("Terminating GTCP Socket: " + std::to_string(GSocket));
@@ -268,8 +263,6 @@ GameServer::~GameServer() {
 void GameServer::Stop() {
     debug("GameServer stopping.");
     NetReset();
-    //Terminate = true;
-    //TCPTerminate = true;
     debug("GameServer stopped.");
 }
 

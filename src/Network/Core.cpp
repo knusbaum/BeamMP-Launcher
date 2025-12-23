@@ -61,10 +61,7 @@ bool SecurityWarning() {
     if (confirmed == 1)
         return true;
 
-    // gs->NetReset();
     gs = nullptr;
-    //Terminate = true;
-    //TCPTerminate = true;
     ping = -1;
 
     return false;
@@ -77,7 +74,6 @@ void StartSync(const std::string& Data) {
             UlStatus = "UlConnection Failed! (DNS Lookup Failed)";
         else
             UlStatus = "UlConnection Failed! (WSA failed to start)";
-        // Terminate = true;
         gs = nullptr;
         CoreSend("L");
         return;
@@ -88,8 +84,6 @@ void StartSync(const std::string& Data) {
     Terminate = false;
     ConfList->clear();
     ping = -1;
-    //std::thread GS(TCPGameServer, IP, std::stoi(Data.substr(Data.find(':') + 1)));
-    //GS.detach();
     gs = std::make_unique<GameServer>(IP, std::stoi(Data.substr(Data.find(':') + 1)));
     gs->Run();
     info("Connecting to server");
@@ -190,7 +184,6 @@ void GetServerInfo(std::string Data) {
 std::mutex sendMutex;
 
 void CoreSend(std::string data) {
-    //debug("CoreSend: [" + data + "]");
     std::lock_guard lock(sendMutex);
 
     if (CoreSocket != -1) {
@@ -221,16 +214,12 @@ void Parse(std::string Data, SOCKET CSocket) {
     char Code = Data.at(0), SubCode = 0;
     if (Data.length() > 1)
         SubCode = Data.at(1);
-    //debug("######################################## CODE: " + std::string(1,Code) + " ######################################");
     switch (Code) {
     case 'A':
         Data = Data.substr(0, 1);
         break;
     case 'B': {
-            // gs->NetReset();
             gs = nullptr;
-            //Terminate = true;
-            //TCPTerminate = true;
             Data.clear();
             futures.push_back(std::async(std::launch::async, []() {
                 CoreSend("B" + HTTP::Get("https://backend.beammp.com/servers-info"));
@@ -294,10 +283,7 @@ void Parse(std::string Data, SOCKET CSocket) {
         break;
     case 'Q':
         if (SubCode == 'S') {
-            // gs->NetReset();
             gs = nullptr;
-            //Terminate = true;
-            //TCPTerminate = true;
             ping = -1;
         }
         if (SubCode == 'G') {
@@ -402,7 +388,6 @@ void GameHandler(SOCKET Client) {
     } else {
         debug("(Core) recv failed with error: " + std::to_string(WSAGetLastError()));
     }
-    // gs->NetReset();
     gs = nullptr;
     KillSocket(Client);
 }
