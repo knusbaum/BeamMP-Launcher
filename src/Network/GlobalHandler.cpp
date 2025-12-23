@@ -48,7 +48,7 @@ int KillSocket(uint64_t Dead) {
     return a;
 }
 
-bool CheckBytes(uint32_t Bytes) {
+static bool CheckBytes(uint32_t Bytes) {
     if (Bytes == 0) {
         debug("(Proxy) Connection closing");
         return false;
@@ -86,7 +86,7 @@ void GameSend(std::string_view Data) {
         return;
     }
 }
-void ServerSend(std::string Data, bool Rel) {
+void ServerSend(TCPGameClient &tgc, std::string Data, bool Rel) {
     if (Terminate || Data.empty())
         return;
     if (Data.find("Zp") != std::string::npos && Data.size() > 500) {
@@ -105,9 +105,9 @@ void ServerSend(std::string Data, bool Rel) {
         Rel = true;
     if (Ack || Rel) {
         if (Ack || DLen > 1000)
-            SendLarge(Data);
+            SendLarge(tgc, Data);
         else
-            TCPSend(Data, TCPSock);
+            tgc.TCPSend(Data);
     } else
         UDPSend(Data);
 
@@ -120,22 +120,27 @@ void ServerSend(std::string Data, bool Rel) {
     }
 }
 
-void NetReset() {
+void GameServer::NetReset() {
+    if (this == nullptr) {
+		// TODO(kjn): HACK
+        return;
+	}        
     TCPTerminate = false;
     GConnected = false;
     Terminate = false;
     UlStatus = "Ulstart";
     MStatus = " ";
     if (UDPSock != (SOCKET)(-1)) {
-        debug("Terminating UDP Socket: " + std::to_string(TCPSock));
+        debug("Terminating UDP Socket: " + std::to_string(UDPSock));
         KillSocket(UDPSock);
     }
     UDPSock = -1;
-    if (TCPSock != (SOCKET)(-1)) {
-        debug("Terminating TCP Socket: " + std::to_string(TCPSock));
-        KillSocket(TCPSock);
-    }
-    TCPSock = -1;
+    // if (TCPSock != (SOCKET)(-1)) {
+    //     debug("Terminating TCP Socket: " + std::to_string(TCPSock));
+    //     KillSocket(TCPSock);
+    // }
+    // TCPSock = -1;
+	tgc.Stop();
     if (GSocket != (SOCKET)(-1)) {
         debug("Terminating GTCP Socket: " + std::to_string(GSocket));
         KillSocket(GSocket);
@@ -201,9 +206,9 @@ SOCKET SetupListener() {
     }
     return GSocket;
 }
-void AutoPing() {
+void AutoPing(TCPGameClient *tgc) {
     while (!Terminate) {
-        ServerSend("p", false);
+        ServerSend(*tgc, "p", false);
         PingStart = std::chrono::high_resolution_clock::now();
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
@@ -237,17 +242,43 @@ void ParserAsync(std::string_view Data) {
 void ServerParser(std::string_view Data) {
     ParserAsync(Data);
 }
-void NetMain(const std::string& IP, int Port) {
-    std::thread Ping(AutoPing);
+
+void NetMain(TCPGameClient *tgc, const std::string& IP, int Port) {
+    std::thread Ping(AutoPing, tgc);
     Ping.detach();
-    UDPClientMain(IP, Port);
+    UDPClientMain(tgc, IP, Port);
     CServer = true;
     Terminate = true;
     info("Connection Terminated!");
 }
-void TCPGameServer(const std::string& IP, int Port) {
+GameServer::GameServer(const std::string IP, int Port) : IP(IP), tgc(IP, Port) {
+    this->Port = Port;
+}
+
+GameServer::~GameServer() {
+	Stop();
+}
+
+void GameServer::Stop() {
+	debug("GameServer stopping.");
+    //Terminate = true;
+    //TCPTerminate = true;
+	if (Thread.joinable()) {
+		debug("GameServer joining thread.");
+		Thread.join();
+		debug("GameServer DONE joining thread.");                        
+    }
+	debug("GameServer stopped.");
+}    
+
+void GameServer::Run() {
+		Thread = std::thread(&GameServer::start, this);
+}    
+
+void GameServer::start() {
     GSocket = SetupListener();
-    std::unique_ptr<std::thread> ClientThread {};
+    //std::unique_ptr<std::thread> ClientThread {};
+	//TCPGameClient tgc(IP, Port);
     std::unique_ptr<std::thread> NetMainThread {};
     while (!TCPTerminate && GSocket != -1) {
         debug("MAIN LOOP OF GAME SERVER");
@@ -260,7 +291,8 @@ void TCPGameServer(const std::string& IP, int Port) {
             break;
         }
         if (CServer) {
-            ClientThread = std::make_unique<std::thread>(TCPClientMain, IP, Port);
+            //ClientThread = std::make_unique<std::thread>(TCPClientMain, IP, Port);
+			tgc.Run();
         }
         CSocket = accept(GSocket, nullptr, nullptr);
         if (CSocket == -1) {
@@ -270,7 +302,7 @@ void TCPGameServer(const std::string& IP, int Port) {
         debug("(Proxy) Game Connected!");
         GConnected = true;
         if (CServer) {
-            NetMainThread = std::make_unique<std::thread>(NetMain, IP, Port);
+            NetMainThread = std::make_unique<std::thread>(NetMain, &tgc, IP, Port);
             CServer = false;
         }
         int32_t Size, Rcv;
@@ -303,7 +335,7 @@ void TCPGameServer(const std::string& IP, int Port) {
             if (Temp < 1 || TCPTerminate)
                 break;
 
-            ServerSend(Ret, false);
+            ServerSend(tgc, Ret, false);
 
         } while (Temp > 0 && !TCPTerminate);
         if (Temp == 0)
@@ -315,11 +347,12 @@ void TCPGameServer(const std::string& IP, int Port) {
     TCPTerminate = true;
     GConnected = false;
     Terminate = true;
-    if (ClientThread) {
-        debug("Waiting for client thread");
-        ClientThread->join();
-        debug("Client thread done");
-    }
+    // if (ClientThread) {
+    //     debug("Waiting for client thread");
+    //     ClientThread->join();
+    //     debug("Client thread done");
+    // }
+	tgc.Stop();
     if (NetMainThread) {
         debug("Waiting for net main thread");
         NetMainThread->join();

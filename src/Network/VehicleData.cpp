@@ -39,12 +39,12 @@ void UDPSend(std::string Data) {
         error("Error Code : " + std::to_string(WSAGetLastError()));
 }
 
-void SendLarge(std::string Data) {
+void SendLarge(TCPGameClient &tgc, std::string Data) {
     if (Data.length() > 400) {
         auto res = Comp(std::span<char>(Data.data(), Data.size()));
         Data = "ABG:" + std::string(res.data(), res.size());
     }
-    TCPSend(Data, TCPSock);
+    tgc.TCPSend(Data);
 }
 
 void UDPParser(std::string_view Packet) {
@@ -78,7 +78,7 @@ void UDPRcv() {
     Ret[Rcv] = 0;
     UDPParser(std::string_view(Ret.data(), Rcv));
 }
-void UDPClientMain(const std::string& IP, int Port) {
+void UDPClientMain(TCPGameClient *tgc, const std::string& IP, int Port) {
 #ifdef _WIN32
     WSADATA data;
     if (WSAStartup(514, &data)) {
@@ -96,7 +96,7 @@ void UDPClientMain(const std::string& IP, int Port) {
     if (!magic.empty())
         UDPSend(magic);
     GameSend("P" + std::to_string(ClientID));
-    TCPSend("H", TCPSock);
+    tgc->TCPSend("H");
     UDPSend("p");
     debug("Starting UDP receive loop");
     while (!Terminate) {

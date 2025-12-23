@@ -49,6 +49,7 @@ bool ModLoaded;
 int ping = -1;
 SOCKET CoreSocket = -1;
 signed char confirmed = -1;
+std::unique_ptr<GameServer> gs;
 
 bool SecurityWarning() {
     confirmed = -1;
@@ -60,7 +61,7 @@ bool SecurityWarning() {
     if (confirmed == 1)
         return true;
 
-    NetReset();
+    gs->NetReset();
     Terminate = true;
     TCPTerminate = true;
     ping = -1;
@@ -85,8 +86,10 @@ void StartSync(const std::string& Data) {
     Terminate = false;
     ConfList->clear();
     ping = -1;
-    std::thread GS(TCPGameServer, IP, std::stoi(Data.substr(Data.find(':') + 1)));
-    GS.detach();
+    //std::thread GS(TCPGameServer, IP, std::stoi(Data.substr(Data.find(':') + 1)));
+    //GS.detach();
+	gs = std::make_unique<GameServer>(IP, std::stoi(Data.substr(Data.find(':') + 1)));
+	gs->Run();
     info("Connecting to server");
 }
 
@@ -220,7 +223,7 @@ void Parse(std::string Data, SOCKET CSocket) {
         Data = Data.substr(0, 1);
         break;
     case 'B': {
-            NetReset();
+            gs->NetReset();
             Terminate = true;
             TCPTerminate = true;
             Data.clear();
@@ -286,7 +289,7 @@ void Parse(std::string Data, SOCKET CSocket) {
         break;
     case 'Q':
         if (SubCode == 'S') {
-            NetReset();
+            gs->NetReset();
             Terminate = true;
             TCPTerminate = true;
             ping = -1;
@@ -393,7 +396,7 @@ void GameHandler(SOCKET Client) {
     } else {
         debug("(Core) recv failed with error: " + std::to_string(WSAGetLastError()));
     }
-    NetReset();
+    gs->NetReset();
     KillSocket(Client);
 }
 void localRes() {

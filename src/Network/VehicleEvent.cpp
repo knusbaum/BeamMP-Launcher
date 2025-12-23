@@ -26,9 +26,9 @@
 
 int LastPort;
 std::string LastIP;
-SOCKET TCPSock = -1;
+//SOCKET TCPSock = -1;
 
-bool CheckBytes(int32_t Bytes) {
+bool TCPGameClient::CheckBytes(int32_t Bytes) {
     if (Bytes == 0) {
         debug("(TCP) Connection closing... CheckBytes(16)");
         Terminate = true;
@@ -45,8 +45,8 @@ void UUl(const std::string& R) {
     UlStatus = "UlDisconnected: " + R;
 }
 
-void TCPSend(const std::string& Data, uint64_t Sock) {
-    if (Sock == -1) {
+void TCPGameClient::TCPSend(const std::string& Data) {
+    if (TCPSock == -1) {
         Terminate = true;
         UUl("Invalid Socket");
         return;
@@ -66,7 +66,7 @@ void TCPSend(const std::string& Data, uint64_t Sock) {
             UUl("TCP Send OOB");
             return;
         }
-        Temp = send(Sock, &Send[Sent], Size - Sent, 0);
+        Temp = send(TCPSock, &Send[Sent], Size - Sent, 0);
         if (!CheckBytes(Temp)) {
             UUl("Socket Closed Code 2");
             return;
@@ -75,8 +75,8 @@ void TCPSend(const std::string& Data, uint64_t Sock) {
     } while (Sent < Size);
 }
 
-std::string TCPRcv(SOCKET Sock) {
-    if (Sock == -1) {
+std::string TCPGameClient::TCPRcv() {
+    if (TCPSock == -1) {
         Terminate = true;
         UUl("Invalid Socket");
         return "";
@@ -84,7 +84,7 @@ std::string TCPRcv(SOCKET Sock) {
     int32_t Header;
     int Temp;
     std::vector<char> Data(sizeof(Header));
-    Temp = recv(Sock, Data.data(), sizeof(Header), MSG_WAITALL);
+    Temp = recv(TCPSock, Data.data(), sizeof(Header), MSG_WAITALL);
     if (!CheckBytes(Temp)) {
         UUl("Socket Closed Code 3");
         return "";
@@ -97,7 +97,7 @@ std::string TCPRcv(SOCKET Sock) {
     }
 
     Data.resize(Header, 0);
-    Temp = recv(Sock, Data.data(), Header, MSG_WAITALL);
+    Temp = recv(TCPSock, Data.data(), Header, MSG_WAITALL);
     if (!CheckBytes(Temp)) {
         UUl("Socket Closed Code 5");
         return "";
@@ -125,7 +125,41 @@ std::string TCPRcv(SOCKET Sock) {
     return Ret;
 }
 
-void TCPClientMain(const std::string& IP, int Port) {
+TCPGameClient::TCPGameClient(const std::string IP, int Port) :IP(IP) {
+	debug("My IP IS: " + this->IP);
+    this->Port = Port;
+}
+
+TCPGameClient::~TCPGameClient() {
+	debug("TCP GAME CLIENT DESTROYED");
+	Stop();
+}
+
+SOCKET TCPGameClient::Sock() {
+	return TCPSock;
+}
+
+void TCPGameClient::Stop() {
+	if(TCPSock != -1) {
+		KillSocket(TCPSock);
+	}
+	if (Thread.joinable()) {
+		debug("TCPGameClient JOINING THREAD!");
+		Thread.join();
+		debug("TCPGameClient DONE JOINING THREAD!!!!!");                
+	}
+}
+
+void TCPGameClient::Run() {
+    debug("Running Game Client!");
+	debug("My IP IS: " + IP);  
+	Thread = std::thread(&TCPGameClient::start, this);	
+}
+
+void TCPGameClient::start() {
+	debug("TCPGameClient Start! IP: (");
+	debug(IP);
+	debug(" ) IP DONE!");        
     LastIP = IP;
     LastPort = Port;
     SOCKADDR_IN ServerAddr;
@@ -137,8 +171,9 @@ void TCPClientMain(const std::string& IP, int Port) {
     TCPSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
     if (TCPSock == -1) {
-        printf("Client: socket failed! Error code: %d\n", WSAGetLastError());
+        debug("Client: socket failed! Error code: %d\n" + std::to_string(WSAGetLastError()));
         WSACleanup();
+		debug("TCPGameClient EXITING!");
         return;
     }
 
@@ -153,15 +188,16 @@ void TCPClientMain(const std::string& IP, int Port) {
         WSACleanup();
         Terminate = true;
         CoreSend("L");
+		debug("TCPGameClient EXITING!");        
         return;
     }
     info("Connected!");
 
     char Code = 'C';
     send(TCPSock, &Code, 1, 0);
-    SyncResources(TCPSock);
+    SyncResources(*this);
     while (!Terminate) {
-        ServerParser(TCPRcv(TCPSock));
+        ServerParser(TCPRcv());
     }
     GameSend("T");
     ////Game Send Terminate
@@ -172,4 +208,5 @@ void TCPClientMain(const std::string& IP, int Port) {
     if (WSACleanup() != 0)
         debug("(TCP) Client: WSACleanup() failed!...");
 #endif
+	debug("TCPGameClient EXITING!");    
 }

@@ -65,10 +65,10 @@ void Abord() {
     info("Terminated!");
 }
 
-std::string Auth(SOCKET Sock) {
-    TCPSend("VC" + GetVer(), Sock);
+std::string Auth(TCPGameClient &tgc) {
+    tgc.TCPSend("VC" + GetVer());
 
-    auto Res = TCPRcv(Sock);
+    auto Res = tgc.TCPRcv();
 
     if (Res.empty() || Res[0] == 'E' || Res[0] == 'K') {
         Abord();
@@ -76,13 +76,13 @@ std::string Auth(SOCKET Sock) {
         return "";
     }
 
-    TCPSend(PublicKey, Sock);
+    tgc.TCPSend(PublicKey);
     if (Terminate) {
         CoreSend("L");
         return "";
     }
 
-    Res = TCPRcv(Sock);
+    Res = tgc.TCPRcv();
     if (Res.empty() || Res[0] != 'P') {
         Abord();
         CoreSend("L");
@@ -98,13 +98,13 @@ std::string Auth(SOCKET Sock) {
         UUl("Authentication failed!");
         return "";
     }
-    TCPSend("SR", Sock);
+    tgc.TCPSend("SR");
     if (Terminate) {
         CoreSend("L");
         return "";
     }
 
-    Res = TCPRcv(Sock);
+    Res = tgc.TCPRcv();
 
     if (Res[0] == 'E' || Res[0] == 'K') {
         Abord();
@@ -115,7 +115,7 @@ std::string Auth(SOCKET Sock) {
     if (Res.empty() || Res == "-") {
         info("Didn't Receive any mods...");
         CoreSend("L");
-        TCPSend("Done", Sock);
+        tgc.TCPSend("Done");
         info("Done!");
         return "";
     }
@@ -221,17 +221,17 @@ SOCKET InitDSock() {
     return DSock;
 }
 
-std::vector<char> SingleNormalDownload(SOCKET MSock, uint64_t Size, const std::string& Name) {
+std::vector<char> SingleNormalDownload(TCPGameClient &tgc, uint64_t Size, const std::string& Name) {
     DownloadSpeed = 0;
 
     uint64_t GRcv = 0;
 
     std::thread Au([&] { AsyncUpdate(GRcv, Size, Name); });
 
-    const std::vector<char> MData = TCPRcvRaw(MSock, GRcv, Size);
+    const std::vector<char> MData = TCPRcvRaw(tgc.Sock(), GRcv, Size);
 
     if (MData.empty()) {
-        KillSocket(MSock);
+        KillSocket(tgc.Sock()); // TODO(kjn): Don't kill sockets from another object
         Terminate = true;
         Au.join();
         return {};
@@ -250,6 +250,7 @@ std::vector<char> SingleNormalDownload(SOCKET MSock, uint64_t Size, const std::s
     return MData;
 }
 
+//TODO(kjn): This is gross, and it's killing MSock and DSock even though it doesn't own them.
 std::vector<char> MultiDownload(SOCKET MSock, SOCKET DSock, uint64_t Size, const std::string& Name) {
     DownloadSpeed = 0;
 
@@ -385,10 +386,10 @@ void UpdateModUsage(const std::string& fileName) {
 }
 
 
-void NewSyncResources(SOCKET Sock, const std::string& Mods, const std::vector<ModInfo> ModInfos) {
+void NewSyncResources(TCPGameClient &tgc, const std::string& Mods, const std::vector<ModInfo> ModInfos) {
     if (ModInfos.empty()) {
         CoreSend("L");
-        TCPSend("Done", Sock);
+        tgc.TCPSend("Done");
         info("Done!");
         return;
     }
@@ -526,9 +527,9 @@ void NewSyncResources(SOCKET Sock, const std::string& Mods, const std::vector<Mo
         std::string FName = ModInfoIter->FileName;
         do {
             debug(beammp_wide("Loading file '") + Utils::ToWString(FName) + beammp_wide("' to '") + beammp_fs_string(PathToSaveTo) + beammp_wide("'"));
-            TCPSend("f" + ModInfoIter->FileName, Sock);
+            tgc.TCPSend("f" + ModInfoIter->FileName);
 
-            std::string Data = TCPRcv(Sock);
+            std::string Data = tgc.TCPRcv();
             if (Data == "CO" || Terminate) {
                 Terminate = true;
                 UUl("Server cannot find " + FName);
@@ -544,7 +545,7 @@ void NewSyncResources(SOCKET Sock, const std::string& Mods, const std::vector<Mo
 
             std::string Name = std::to_string(ModNo) + "/" + std::to_string(TotalMods) + ": " + FName;
 
-            std::vector<char> DownloadedFile = SingleNormalDownload(Sock, ModInfoIter->FileSize, Name);
+            std::vector<char> DownloadedFile = SingleNormalDownload(tgc, ModInfoIter->FileSize, Name);
 
             if (Terminate)
                 break;
@@ -586,7 +587,7 @@ void NewSyncResources(SOCKET Sock, const std::string& Mods, const std::vector<Mo
     }
 
     if (!Terminate) {
-        TCPSend("Done", Sock);
+        tgc.TCPSend("Done");
         info("Done!");
     } else {
         UlStatus = "Ulstart";
@@ -594,8 +595,8 @@ void NewSyncResources(SOCKET Sock, const std::string& Mods, const std::vector<Mo
     }
 }
 
-void SyncResources(SOCKET Sock) {
-    std::string Ret = Auth(Sock);
+void SyncResources(TCPGameClient &tgc) {
+    std::string Ret = Auth(tgc);
 
     debug("Mod info: " + Ret);
 
@@ -605,7 +606,7 @@ void SyncResources(SOCKET Sock) {
         auto [success, modInfo] = ModInfo::ParseModInfosFromPacket(Ret);
 
         if (success) {
-            NewSyncResources(Sock, Ret, modInfo);
+            NewSyncResources(tgc, Ret, modInfo);
             return;
         }
     }
@@ -698,9 +699,9 @@ void SyncResources(SOCKET Sock) {
         std::string FName = PathToSaveTo.filename().string();
         do {
             debug("Loading file '" + FName + "' to '" + PathToSaveTo.string() + "'");
-            TCPSend("f" + *FN, Sock);
+            tgc.TCPSend("f" + *FN);
 
-            std::string Data = TCPRcv(Sock);
+            std::string Data = tgc.TCPRcv();
             if (Data == "CO" || Terminate) {
                 Terminate = true;
                 UUl("Server cannot find " + FName);
@@ -709,7 +710,7 @@ void SyncResources(SOCKET Sock) {
 
             std::string Name = std::to_string(Pos) + "/" + std::to_string(Amount) + ": " + FName;
 
-            std::vector<char> DownloadedFile = MultiDownload(Sock, DSock, FileSize, Name);
+            std::vector<char> DownloadedFile = MultiDownload(tgc.Sock(), DSock, FileSize, Name);
 
             if (Terminate)
                 break;
@@ -746,7 +747,7 @@ void SyncResources(SOCKET Sock) {
 
     KillSocket(DSock);
     if (!Terminate) {
-        TCPSend("Done", Sock);
+        tgc.TCPSend("Done");
         info("Done!");
     } else {
         UlStatus = "Ulstart";
