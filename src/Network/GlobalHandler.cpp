@@ -284,7 +284,6 @@ void GameServer::start() {
             break;
         }
         if (CServer) {
-            //ClientThread = std::make_unique<std::thread>(TCPClientMain, IP, Port);
             tgc.Run();
         }
         CSocket = accept(GSocket, nullptr, nullptr);
@@ -340,11 +339,7 @@ void GameServer::start() {
     TCPTerminate = true;
     GConnected = false;
     Terminate = true;
-    // if (ClientThread) {
-    //     debug("Waiting for client thread");
-    //     ClientThread->join();
-    //     debug("Client thread done");
-    // }
+
     tgc.Stop();
     if (NetMainThread) {
         debug("Waiting for net main thread");

@@ -61,10 +61,8 @@ static void WaitForConfirm(TCPGameClient &tgc) {
 }
 
 static void Abord() {
-    //Terminate = true;
-    //TCPTerminate = true;
     info("Resources::Abord()!");
-	throw SyncError();
+    throw SyncError();
 }
 
 static std::string Auth(TCPGameClient &tgc) {
@@ -133,37 +131,37 @@ static void UpdateUl(bool D, const std::string& msg) {
 
 float DownloadSpeed = 0;
 
-class AsyncUpdater {    
+class AsyncUpdater {
     bool go = true;
-	uint64_t& Rcv;
+    uint64_t& Rcv;
     uint64_t Size;
     const std::string& Name;
     std::thread T;
-public:    
-	AsyncUpdater(uint64_t& Rcv, uint64_t Size, const std::string& Name)
-		: Rcv(Rcv)
-		, Size(Size)
-		, Name(Name) {
-		//T = std::thread(&AsyncUpdater::update, this);
-	}
-	~AsyncUpdater() {
-		go = false;
-        //T.join();
-	}            
-	void update() {
-		do {
-			double pr = double(Rcv) / double(Size) * 100;
-			std::string Per = std::to_string(trunc(pr * 10) / 10);
-			std::string SpeedString = "";
-			if (DownloadSpeed > 0.01) {
-				std::stringstream ss;
-				ss << " at " << std::setprecision(1) << std::fixed << DownloadSpeed << " Mbit/s";
-				SpeedString = ss.str();
-			}
-			UpdateUl(true, Name + " (" + Per.substr(0, Per.find('.') + 2) + "%)" + SpeedString);
-			std::this_thread::sleep_for(std::chrono::milliseconds(100));
-		} while (go && Rcv < Size);
-	}
+public:
+    AsyncUpdater(uint64_t& Rcv, uint64_t Size, const std::string& Name)
+        : Rcv(Rcv)
+        , Size(Size)
+        , Name(Name) {
+        T = std::thread(&AsyncUpdater::update, this);
+    }
+    ~AsyncUpdater() {
+        go = false;
+        T.join();
+    }
+    void update() {
+        do {
+            double pr = double(Rcv) / double(Size) * 100;
+            std::string Per = std::to_string(trunc(pr * 10) / 10);
+            std::string SpeedString = "";
+            if (DownloadSpeed > 0.01) {
+                std::stringstream ss;
+                ss << " at " << std::setprecision(1) << std::fixed << DownloadSpeed << " Mbit/s";
+                SpeedString = ss.str();
+            }
+            UpdateUl(true, Name + " (" + Per.substr(0, Per.find('.') + 2) + "%)" + SpeedString);
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        } while (go && Rcv < Size);
+    }
 };
 
 // MICROSOFT, I DONT CARE, WRITE BETTER CODE
@@ -171,9 +169,8 @@ public:
 
 static std::vector<char> TCPRcvRaw(SOCKET Sock, uint64_t& GRcv, uint64_t Size) {
     if (Sock == -1) {
-        //Terminate = true;
         UUl("Invalid Socket");
-		throw SyncError();
+        throw SyncError();
         return {};
     }
     std::vector<char> File(Size);
@@ -193,8 +190,7 @@ static std::vector<char> TCPRcvRaw(SOCKET Sock, uint64_t& GRcv, uint64_t Size) {
             }
             UUl("Socket Closed Code 1");
             KillSocket(Sock);
-            // Terminate = true;
-			throw SyncError();
+            throw SyncError();
             return {};
         }
         Rcv += Temp;
@@ -210,14 +206,14 @@ static std::vector<char> TCPRcvRaw(SOCKET Sock, uint64_t& GRcv, uint64_t Size) {
             debug("Download speed: " + std::to_string(uint32_t(megabits_per_s)) + "Mbit/s");
         }
         ++i;
-    } while (Rcv < Size);// && !Terminate);
+    } while (Rcv < Size);
     return File;
 }
 
 static void MultiKill(SOCKET Sock, SOCKET Sock1) {
     KillSocket(Sock1);
     KillSocket(Sock);
-	throw SyncError();
+    throw SyncError();
 }
 
 static SOCKET InitDSock() {
@@ -225,7 +221,7 @@ static SOCKET InitDSock() {
     SOCKADDR_IN ServerAddr;
     if (DSock < 1) {
         KillSocket(DSock);
-		throw SyncError();
+        throw SyncError();
         return 0;
     }
     ServerAddr.sin_family = AF_INET;
@@ -233,13 +229,13 @@ static SOCKET InitDSock() {
     inet_pton(AF_INET, LastIP.c_str(), &ServerAddr.sin_addr);
     if (connect(DSock, (SOCKADDR*)&ServerAddr, sizeof(ServerAddr)) != 0) {
         KillSocket(DSock);
-		throw SyncError();
+        throw SyncError();
         return 0;
     }
     char Code[2] = { 'D', char(ClientID) };
     if (send(DSock, Code, 2, 0) != 2) {
         KillSocket(DSock);
-		throw SyncError();
+        throw SyncError();
         return 0;
     }
     return DSock;
@@ -249,15 +245,13 @@ static std::vector<char> SingleNormalDownload(TCPGameClient &tgc, uint64_t Size,
     DownloadSpeed = 0;
 
     uint64_t GRcv = 0;
-	//bool go = true;
-        // std::thread Au([&] { AsyncUpdate(go, GRcv, Size, Name); });
-	AsyncUpdater aud(GRcv, Size, Name);
+    AsyncUpdater aud(GRcv, Size, Name);
 
     const std::vector<char> MData = TCPRcvRaw(tgc.Sock(), GRcv, Size);
 
     if (MData.empty()) {
         KillSocket(tgc.Sock()); // TODO(kjn): Don't kill sockets from another object
-		throw SyncError();
+        throw SyncError();
         return {};
     }
 
@@ -265,7 +259,7 @@ static std::vector<char> SingleNormalDownload(TCPGameClient &tgc, uint64_t Size,
     GRcv = MData.size();
     if (GRcv != Size) {
         error("Something went wrong during download; didn't get enough data. Expected " + std::to_string(Size) + " bytes, got " + std::to_string(GRcv) + " bytes instead");
-		throw SyncError();
+        throw SyncError();
         return {};
     }
     return MData;
@@ -280,13 +274,13 @@ static std::vector<char> MultiDownload(SOCKET MSock, SOCKET DSock, uint64_t Size
     uint64_t MSize = Size / 2;
     uint64_t DSize = Size - MSize;
 
-	AsyncUpdater aud(GRcv, Size, Name);
+    AsyncUpdater aud(GRcv, Size, Name);
 
     const std::vector<char> MData = TCPRcvRaw(MSock, GRcv, MSize);
 
     if (MData.empty()) {
         MultiKill(MSock, DSock);
-		throw SyncError();
+        throw SyncError();
         return {};
     }
 
@@ -294,7 +288,7 @@ static std::vector<char> MultiDownload(SOCKET MSock, SOCKET DSock, uint64_t Size
 
     if (DData.empty()) {
         MultiKill(MSock, DSock);
-		throw SyncError();
+        throw SyncError();
         return {};
     }
 
@@ -302,7 +296,7 @@ static std::vector<char> MultiDownload(SOCKET MSock, SOCKET DSock, uint64_t Size
     GRcv = MData.size() + DData.size();
     if (GRcv != Size) {
         error("Something went wrong during download; didn't get enough data. Expected " + std::to_string(Size) + " bytes, got " + std::to_string(GRcv) + " bytes instead");
-		throw SyncError();
+        throw SyncError();
         return {};
     }
 
@@ -315,7 +309,7 @@ static std::vector<char> MultiDownload(SOCKET MSock, SOCKET DSock, uint64_t Size
 static void InvalidResource(const std::string& File) {
     UUl("Invalid mod \"" + File + "\"");
     warn("The server tried to sync \"" + File + "\" that is not a .zip file!");
-	throw SyncError();
+    throw SyncError();
 }
 
 struct ModInfo {
@@ -442,7 +436,6 @@ static void NewSyncResources(TCPGameClient &tgc, const std::string& Mods, const 
 
     int ModNo = 0;
     int TotalMods = ModInfos.size();
-	//&& !Terminate    
     for (auto ModInfoIter = ModInfos.begin(), AlsoModInfoIter = ModInfos.begin(); ModInfoIter != ModInfos.end() ; ++ModInfoIter, ++AlsoModInfoIter) {
         ++ModNo;
         if (deleteDuplicateMods) {
@@ -458,7 +451,7 @@ static void NewSyncResources(TCPGameClient &tgc, const std::string& Mods, const 
         }
         if (ModInfoIter->Hash.length() < 8 || ModInfoIter->HashAlgorithm != "sha256") {
             error("Unsupported hash algorithm or invalid hash for '" + ModInfoIter->FileName + "'");
-			throw SyncError();
+            throw SyncError();
             return;
         }
         auto FileName = std::filesystem::path(ModInfoIter->FileName).stem().string() + "-" + ModInfoIter->Hash.substr(0, 8) + std::filesystem::path(ModInfoIter->FileName).extension().string();
@@ -488,7 +481,7 @@ static void NewSyncResources(TCPGameClient &tgc, const std::string& Mods, const 
                 UpdateModUsage(FileName);
             } catch (std::exception& e) {
                 error("Failed copy to the mods folder! " + std::string(e.what()));
-				throw SyncError();
+                throw SyncError();
                 continue;
             }
             WaitForConfirm(tgc);
@@ -524,7 +517,7 @@ static void NewSyncResources(TCPGameClient &tgc, const std::string& Mods, const 
                 UpdateModUsage(FileName);
             } catch (std::exception& e) {
                 error("Failed copy to the mods folder! " + std::string(e.what()));
-				throw SyncError();
+                throw SyncError();
                 continue;
             }
             WaitForConfirm(tgc);
@@ -536,7 +529,7 @@ static void NewSyncResources(TCPGameClient &tgc, const std::string& Mods, const 
 
             error(message);
             UUl(message);
-			throw SyncError();
+            throw SyncError();
             return;
         }
 
@@ -547,16 +540,16 @@ static void NewSyncResources(TCPGameClient &tgc, const std::string& Mods, const 
             tgc.TCPSend("f" + ModInfoIter->FileName);
 
             std::string Data = tgc.TCPRcv();
-            if (Data == "CO") { // || Terminate) {
+            if (Data == "CO") {
                 UUl("Server cannot find " + FName);
-				throw SyncError();                
+                throw SyncError();
                 break;
             }
 
             if (Data != "AG") {
                 UUl("Received corrupted download confirmation, aborting download.");
                 debug("Corrupted download confirmation: " + Data);
-				throw SyncError();
+                throw SyncError();
                 break;
             }
 
@@ -564,8 +557,6 @@ static void NewSyncResources(TCPGameClient &tgc, const std::string& Mods, const 
 
             std::vector<char> DownloadedFile = SingleNormalDownload(tgc, ModInfoIter->FileSize, Name);
 
-            //if (Terminate)
-            //    break;
             UpdateUl(false, std::to_string(ModNo) + "/" + std::to_string(TotalMods) + ": " + FName);
 
             // 1. write downloaded file to disk
@@ -577,39 +568,32 @@ static void NewSyncResources(TCPGameClient &tgc, const std::string& Mods, const 
             // 2. verify size and hash
             if (std::filesystem::file_size(PathToSaveTo) != DownloadedFile.size()) {
                 error(beammp_wide("Failed to write the entire file '") + beammp_fs_string(PathToSaveTo) + beammp_wide("' correctly (file size mismatch)"));
-				throw SyncError();                
+                throw SyncError();
             }
 
             if (Utils::GetSha256HashReallyFastFile(PathToSaveTo) != ModInfoIter->Hash) {
                 error(beammp_wide("Failed to write or download the entire file '") + beammp_fs_string(PathToSaveTo) + beammp_wide("' correctly (hash mismatch)"));
-				throw SyncError();                
+                throw SyncError();
             }
-        } while (fs::file_size(PathToSaveTo) != ModInfoIter->FileSize); // && !Terminate);
-        //if (!Terminate) {
-            if (!fs::exists(GetGamePath() / beammp_wide("mods/multiplayer"))) {
-                fs::create_directories(GetGamePath() / beammp_wide("mods/multiplayer"));
-            }
+        } while (fs::file_size(PathToSaveTo) != ModInfoIter->FileSize);
+        if (!fs::exists(GetGamePath() / beammp_wide("mods/multiplayer"))) {
+            fs::create_directories(GetGamePath() / beammp_wide("mods/multiplayer"));
+        }
 
 // Linux version of the game doesnt support uppercase letters in mod names
 #if defined(__linux__)
-            for (char& c : FName) {
-                c = ::tolower(c);
-            }
+        for (char& c : FName) {
+            c = ::tolower(c);
+        }
 #endif
 
-            fs::copy_file(PathToSaveTo, std::filesystem::path(GetGamePath()) / "mods/multiplayer" / FName, fs::copy_options::overwrite_existing);
-            UpdateModUsage(FName);
-			//}
+        fs::copy_file(PathToSaveTo, std::filesystem::path(GetGamePath()) / "mods/multiplayer" / FName, fs::copy_options::overwrite_existing);
+        UpdateModUsage(FName);
         WaitForConfirm(tgc);
     }
 
-    //if (!Terminate) {
-        tgc.TCPSend("Done");
-        info("Done!");
-		//} else {
-        //UlStatus = "Ulstart";
-        //info("Connection Terminated!");
-		//}
+    tgc.TCPSend("Done");
+    info("Done!");
 }
 
 static void _syncResources(TCPGameClient& tgc) {
@@ -656,7 +640,6 @@ static void _syncResources(TCPGameClient& tgc) {
     else
         CoreSend("L" + t);
     t.clear();
-	// && !Terminate
     for (auto FN = FNames.begin(), FS = FSizes.begin(); FN != FNames.end(); ++FN, ++FS) {
         auto pos = FN->find_last_of('/');
         auto ZIP = FN->find(".zip");
@@ -671,7 +654,6 @@ static void _syncResources(TCPGameClient& tgc) {
     if (!FNames.empty())
         info("Syncing...");
     SOCKET DSock = InitDSock();
-	// && !Terminate
     for (auto FN = FNames.begin(), FS = FSizes.begin(); FN != FNames.end(); ++FN, ++FS) {
         auto pos = FN->find_last_of('/');
         if (pos != std::string::npos) {
@@ -706,7 +688,7 @@ static void _syncResources(TCPGameClient& tgc) {
                     UpdateModUsage(modname);
                 } catch (std::exception& e) {
                     error("Failed copy to the mods folder! " + std::string(e.what()));
-					throw SyncError();                    
+                    throw SyncError();
                     continue;
                 }
                 WaitForConfirm(tgc);
@@ -721,9 +703,9 @@ static void _syncResources(TCPGameClient& tgc) {
             tgc.TCPSend("f" + *FN);
 
             std::string Data = tgc.TCPRcv();
-            if (Data == "CO") { // || Terminate) {
-				throw SyncError();                
+            if (Data == "CO") {
                 UUl("Server cannot find " + FName);
+                throw SyncError();
                 break;
             }
 
@@ -731,8 +713,6 @@ static void _syncResources(TCPGameClient& tgc) {
 
             std::vector<char> DownloadedFile = MultiDownload(tgc.Sock(), DSock, FileSize, Name);
 
-            //if (Terminate)
-            //    break;
             UpdateUl(false, std::to_string(Pos) + "/" + std::to_string(Amount) + ": " + FName);
 
             // 1. write downloaded file to disk
@@ -743,35 +723,28 @@ static void _syncResources(TCPGameClient& tgc) {
             // 2. verify size
             if (std::filesystem::file_size(PathToSaveTo) != DownloadedFile.size()) {
                 error(beammp_wide("Failed to write the entire file '") + beammp_fs_string(PathToSaveTo) + beammp_wide("' correctly (file size mismatch)"));
-				throw SyncError();                
+                throw SyncError();
             }
-        } while (fs::file_size(PathToSaveTo) != std::stoull(*FS)); // && !Terminate);
-        //if (!Terminate) {
-            if (!fs::exists(GetGamePath() / beammp_wide("mods/multiplayer"))) {
-                fs::create_directories(GetGamePath() / beammp_wide("mods/multiplayer"));
-            }
+        } while (fs::file_size(PathToSaveTo) != std::stoull(*FS));
+        if (!fs::exists(GetGamePath() / beammp_wide("mods/multiplayer"))) {
+            fs::create_directories(GetGamePath() / beammp_wide("mods/multiplayer"));
+        }
 
 // Linux version of the game doesnt support uppercase letters in mod names
 #if defined(__linux__)
-            for (char& c : FName) {
-                c = ::tolower(c);
-            }
+        for (char& c : FName) {
+            c = ::tolower(c);
+        }
 #endif
 
-            fs::copy_file(PathToSaveTo, GetGamePath() / beammp_wide("mods/multiplayer") / Utils::ToWString(FName), fs::copy_options::overwrite_existing);
-            UpdateModUsage(FN->substr(pos));
-			//}
+        fs::copy_file(PathToSaveTo, GetGamePath() / beammp_wide("mods/multiplayer") / Utils::ToWString(FName), fs::copy_options::overwrite_existing);
+        UpdateModUsage(FN->substr(pos));
         WaitForConfirm(tgc);
     }
 
     KillSocket(DSock);
-    //if (!Terminate) {
-	tgc.TCPSend("Done");
-	info("Done!");
-		//} else {
-        //UlStatus = "Ulstart";
-        //info("Connection Terminated!");
-		//}
+    tgc.TCPSend("Done");
+    info("Done!");
 }
 
 
@@ -780,7 +753,7 @@ bool SyncResources(TCPGameClient& tgc) {
         _syncResources(tgc);
     } catch (SyncError e) {
         debug("############################################### SyncError occurred. #########################################");
-		return false;
+        return false;
     }
-	return true;    
+    return true;
 }

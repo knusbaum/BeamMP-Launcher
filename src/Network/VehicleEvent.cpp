@@ -26,19 +26,16 @@
 
 int LastPort;
 std::string LastIP;
-//SOCKET TCPSock = -1;
 
 bool TCPGameClient::CheckBytes(int32_t Bytes) {
     if (Bytes == 0) {
         debug("(TCP) Connection closing... CheckBytes(16)");
-        //Terminate = true;
-		gs.Stop();
+        gs.Stop();
         return false;
     } else if (Bytes < 0) {
         debug("(TCP CB) recv failed with error: " + std::to_string(WSAGetLastError()));
         KillSocket(TCPSock);
-        //Terminate = true;
-		gs.Stop();
+        gs.Stop();
         return false;
     }
     return true;
@@ -49,8 +46,7 @@ void UUl(const std::string& R) {
 
 void TCPGameClient::TCPSend(const std::string& Data) {
     if (TCPSock == -1) {
-        //Terminate = true;
-		gs.Stop();
+        gs.Stop();
         UUl("Invalid Socket");
         return;
     }
@@ -80,8 +76,7 @@ void TCPGameClient::TCPSend(const std::string& Data) {
 
 std::string TCPGameClient::TCPRcv() {
     if (TCPSock == -1) {
-        //Terminate = true;
-		gs.Stop();
+        gs.Stop();
         UUl("Invalid Socket");
         return "";
     }
@@ -130,45 +125,40 @@ std::string TCPGameClient::TCPRcv() {
 }
 
 TCPGameClient::TCPGameClient(GameServer &gs, const std::string IP, int Port) :IP(IP), gs(gs) {
-	debug("My IP IS: " + this->IP);
     this->Port = Port;
 }
 
 TCPGameClient::~TCPGameClient() {
-	debug("TCP GAME CLIENT DESTROYED");
-	Stop();
-	if (Thread.joinable()) {
-		debug("TCPGameClient JOINING THREAD!");
-		Thread.join();
-		debug("TCPGameClient DONE JOINING THREAD!!!!!");                
-	}
+    Stop();
+    if (Thread.joinable()) {
+        debug("TCPGameClient JOINING THREAD!");
+        Thread.join();
+        debug("TCPGameClient DONE JOINING THREAD!!!!!");
+    }
 }
 
 SOCKET TCPGameClient::Sock() {
-	return TCPSock;
+    return TCPSock;
 }
 
 bool TCPGameClient::Running() {
-	return TCPSock != -1;
+    return TCPSock != -1;
 }
 
 void TCPGameClient::Stop() {
-	if(TCPSock != -1) {
+    debug("TCPGameClient Stopping.");
+    if(TCPSock != -1) {
             KillSocket(TCPSock);
-			TCPSock = -1;
-	}
+            TCPSock = -1;
+    }
+    debug("TCPGameClient Done Stopping.");
 }
 
 void TCPGameClient::Run() {
-    debug("Running Game Client!");
-	debug("My IP IS: " + IP);  
-	Thread = std::thread(&TCPGameClient::start, this);	
+    Thread = std::thread(&TCPGameClient::start, this);
 }
 
 void TCPGameClient::start() {
-	debug("TCPGameClient Start! IP: (");
-	debug(IP);
-	debug(" ) IP DONE!");        
     LastIP = IP;
     LastPort = Port;
     SOCKADDR_IN ServerAddr;
@@ -182,7 +172,7 @@ void TCPGameClient::start() {
     if (TCPSock == -1) {
         debug("Client: socket failed! Error code: %d\n" + std::to_string(WSAGetLastError()));
         WSACleanup();
-		debug("TCPGameClient EXITING!");
+        debug("TCPGameClient Shutting Down.");
         return;
     }
 
@@ -195,20 +185,19 @@ void TCPGameClient::start() {
         error("Client: connect failed! Error code: " + std::to_string(WSAGetLastError()));
         KillSocket(TCPSock);
         WSACleanup();
-        //Terminate = true;
-		gs.Stop();
+        gs.Stop();
         CoreSend("L");
-		debug("TCPGameClient EXITING!");        
+        debug("TCPGameClient Shutting Down.");
         return;
     }
-    info("Connected!");
-	
+    info("TCPGameClient Connected!");
+
     char Code = 'C';
     send(TCPSock, &Code, 1, 0);
     if (!SyncResources(*this)) {
-		gs.Stop();
-	}        
-    while (TCPSock != -1) { //!Terminate) {
+        gs.Stop();
+    }
+    while (TCPSock != -1) {
         ServerParser(TCPRcv());
     }
     GameSend("T");
@@ -220,5 +209,5 @@ void TCPGameClient::start() {
     if (WSACleanup() != 0)
         debug("(TCP) Client: WSACleanup() failed!...");
 #endif
-	debug("TCPGameClient EXITING!");    
+    debug("TCPGameClient Shutting Down.");
 }

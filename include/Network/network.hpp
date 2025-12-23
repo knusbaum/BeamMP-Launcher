@@ -61,7 +61,6 @@ public:
 
 class SyncError{};
 
-//void NetReset();
 extern bool Dev;
 extern int ping;
 
@@ -72,7 +71,6 @@ extern int LastPort;
 extern bool ModLoaded;
 extern volatile bool Terminate;
 extern uint64_t UDPSock;
-//extern uint64_t TCPSock;
 extern std::string Branch;
 extern std::filesystem::path CachingDirectory;
 extern bool deleteDuplicateMods;
@@ -86,18 +84,12 @@ extern std::string magic;
 int KillSocket(uint64_t Dead);
 void UUl(const std::string& R);
 void UDPSend(std::string Data);
-//bool CheckBytes(int32_t Bytes);
 void GameSend(std::string_view Data);
 void SendLarge(TCPGameClient &tgc, std::string Data);
-//std::string TCPRcv(uint64_t Sock);
-//void SyncResources(uint64_t TCPSock);
 bool SyncResources(TCPGameClient &tgc);
 std::string GetAddr(const std::string& IP);
 void ServerParser(std::string_view Data);
 std::string Login(const std::string& fields);
-//void TCPSend(const std::string& Data, uint64_t Sock);
-//void TCPClientMain(const std::string& IP, int Port);
 void UDPClientMain(TCPGameClient *tgc, const std::string& IP, int Port);
-//void TCPGameServer(const std::string& IP, int Port);
 bool SecurityWarning();
 void CoreSend(std::string data);
