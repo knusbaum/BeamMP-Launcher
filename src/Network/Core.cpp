@@ -61,9 +61,10 @@ bool SecurityWarning() {
     if (confirmed == 1)
         return true;
 
-    gs->NetReset();
-    Terminate = true;
-    TCPTerminate = true;
+    // gs->NetReset();
+	gs = nullptr;
+    //Terminate = true;
+    //TCPTerminate = true;
     ping = -1;
 
     return false;
@@ -76,7 +77,8 @@ void StartSync(const std::string& Data) {
             UlStatus = "UlConnection Failed! (DNS Lookup Failed)";
         else
             UlStatus = "UlConnection Failed! (WSA failed to start)";
-        Terminate = true;
+        // Terminate = true;
+		gs = nullptr;
         CoreSend("L");
         return;
     }
@@ -223,9 +225,10 @@ void Parse(std::string Data, SOCKET CSocket) {
         Data = Data.substr(0, 1);
         break;
     case 'B': {
-            gs->NetReset();
-            Terminate = true;
-            TCPTerminate = true;
+        // gs->NetReset();
+		    gs = nullptr;
+            //Terminate = true;
+            //TCPTerminate = true;
             Data.clear();
             futures.push_back(std::async(std::launch::async, []() {
                 CoreSend("B" + HTTP::Get("https://backend.beammp.com/servers-info"));
@@ -289,9 +292,10 @@ void Parse(std::string Data, SOCKET CSocket) {
         break;
     case 'Q':
         if (SubCode == 'S') {
-            gs->NetReset();
-            Terminate = true;
-            TCPTerminate = true;
+            // gs->NetReset();
+			gs = nullptr;
+            //Terminate = true;
+            //TCPTerminate = true;
             ping = -1;
         }
         if (SubCode == 'G') {
@@ -396,7 +400,8 @@ void GameHandler(SOCKET Client) {
     } else {
         debug("(Core) recv failed with error: " + std::to_string(WSAGetLastError()));
     }
-    gs->NetReset();
+    // gs->NetReset();
+	gs = nullptr;
     KillSocket(Client);
 }
 void localRes() {

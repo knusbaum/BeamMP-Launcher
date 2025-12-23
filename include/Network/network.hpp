@@ -20,6 +20,7 @@
 
 class TCPGameClient;
 class UDPGameClient;
+class GameServer;
 
 class TCPGameClient {
 private:
@@ -27,17 +28,19 @@ private:
 	const std::string IP;
 	int Port;
 	std::thread Thread;
+	GameServer &gs;
 
 	bool CheckBytes(int32_t Bytes);
 	void start();
 public:
-	TCPGameClient(const std::string IP, int Port);
+	TCPGameClient(GameServer &gs, const std::string IP, int Port);
 	~TCPGameClient();
 	void Run();
 	void Stop();
 	void TCPSend(const std::string& Data);
 	std::string TCPRcv();
 	SOCKET Sock();
+	bool Running();
 };
 
 class GameServer {

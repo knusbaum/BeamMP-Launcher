@@ -251,23 +251,25 @@ void NetMain(TCPGameClient *tgc, const std::string& IP, int Port) {
     Terminate = true;
     info("Connection Terminated!");
 }
-GameServer::GameServer(const std::string IP, int Port) : IP(IP), tgc(IP, Port) {
+GameServer::GameServer(const std::string IP, int Port) : IP(IP), tgc(*this, IP, Port) {
     this->Port = Port;
 }
 
 GameServer::~GameServer() {
-	Stop();
+    Stop();
+	if (Thread.joinable()) {
+		debug("GameServer joining thread.");
+		Thread.join();
+		debug("GameServer DONE joining thread.");
+	}
+	NetReset();            
 }
 
 void GameServer::Stop() {
 	debug("GameServer stopping.");
-    //Terminate = true;
-    //TCPTerminate = true;
-	if (Thread.joinable()) {
-		debug("GameServer joining thread.");
-		Thread.join();
-		debug("GameServer DONE joining thread.");                        
-    }
+	NetReset();
+	//Terminate = true;
+	//TCPTerminate = true;
 	debug("GameServer stopped.");
 }    
 
@@ -277,8 +279,6 @@ void GameServer::Run() {
 
 void GameServer::start() {
     GSocket = SetupListener();
-    //std::unique_ptr<std::thread> ClientThread {};
-	//TCPGameClient tgc(IP, Port);
     std::unique_ptr<std::thread> NetMainThread {};
     while (!TCPTerminate && GSocket != -1) {
         debug("MAIN LOOP OF GAME SERVER");
