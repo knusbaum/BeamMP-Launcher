@@ -60,18 +60,13 @@ static void WaitForConfirm(TCPGameClient &tgc) {
     ModLoaded = false;
 }
 
-static void Abord() {
-    info("Resources::Abord()!");
-    throw SyncError();
-}
-
 static std::string Auth(TCPGameClient &tgc) {
     tgc.TCPSend("VC" + GetVer());
 
     auto Res = tgc.TCPRcv();
 
     if (Res.empty() || Res[0] == 'E' || Res[0] == 'K') {
-        Abord();
+        throw SyncError();
         CoreSend("L");
         return "";
     }
@@ -84,7 +79,7 @@ static std::string Auth(TCPGameClient &tgc) {
 
     Res = tgc.TCPRcv();
     if (Res.empty() || Res[0] != 'P') {
-        Abord();
+        throw SyncError();
         CoreSend("L");
         return "";
     }
@@ -93,7 +88,7 @@ static std::string Auth(TCPGameClient &tgc) {
     if (Res.find_first_not_of("0123456789") == std::string::npos) {
         ClientID = std::stoi(Res);
     } else {
-        Abord();
+        throw SyncError();
         CoreSend("L");
         UUl("Authentication failed!");
         return "";
@@ -107,7 +102,7 @@ static std::string Auth(TCPGameClient &tgc) {
     Res = tgc.TCPRcv();
 
     if (Res[0] == 'E' || Res[0] == 'K') {
-        Abord();
+        throw SyncError();
         CoreSend("L");
         return "";
     }
@@ -596,7 +591,7 @@ static void NewSyncResources(TCPGameClient &tgc, const std::string& Mods, const 
     info("Done!");
 }
 
-static void _syncResources(TCPGameClient& tgc) {
+static void syncResources(TCPGameClient& tgc) {
     std::string Ret = Auth(tgc);
 
     debug("Mod info: " + Ret);
@@ -750,9 +745,9 @@ static void _syncResources(TCPGameClient& tgc) {
 
 bool SyncResources(TCPGameClient& tgc) {
     try {
-        _syncResources(tgc);
+        syncResources(tgc);
     } catch (SyncError e) {
-        debug("############################################### SyncError occurred. #########################################");
+        debug("SyncError Occurred.");
         return false;
     }
     return true;

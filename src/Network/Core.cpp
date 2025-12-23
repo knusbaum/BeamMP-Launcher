@@ -61,6 +61,7 @@ bool SecurityWarning() {
     if (confirmed == 1)
         return true;
 
+    debug("(Core) Stopping GameServer.");
     gs = nullptr;
     ping = -1;
 
@@ -74,6 +75,7 @@ void StartSync(const std::string& Data) {
             UlStatus = "UlConnection Failed! (DNS Lookup Failed)";
         else
             UlStatus = "UlConnection Failed! (WSA failed to start)";
+        debug("(Core) Stopping GameServer.");
         gs = nullptr;
         CoreSend("L");
         return;
@@ -84,6 +86,7 @@ void StartSync(const std::string& Data) {
     Terminate = false;
     ConfList->clear();
     ping = -1;
+    debug("(Core) Starting GameServer.");
     gs = std::make_unique<GameServer>(IP, std::stoi(Data.substr(Data.find(':') + 1)));
     gs->Run();
     info("Connecting to server");
@@ -219,6 +222,7 @@ void Parse(std::string Data, SOCKET CSocket) {
         Data = Data.substr(0, 1);
         break;
     case 'B': {
+            debug("(Core) Stopping GameServer.");
             gs = nullptr;
             Data.clear();
             futures.push_back(std::async(std::launch::async, []() {
@@ -283,6 +287,7 @@ void Parse(std::string Data, SOCKET CSocket) {
         break;
     case 'Q':
         if (SubCode == 'S') {
+            debug("(Core) Stopping GameServer.");
             gs = nullptr;
             ping = -1;
         }
@@ -388,6 +393,7 @@ void GameHandler(SOCKET Client) {
     } else {
         debug("(Core) recv failed with error: " + std::to_string(WSAGetLastError()));
     }
+    debug("(Core) Stopping GameServer.");
     gs = nullptr;
     KillSocket(Client);
 }

@@ -195,6 +195,7 @@ void TCPGameClient::start() {
     char Code = 'C';
     send(TCPSock, &Code, 1, 0);
     if (!SyncResources(*this)) {
+        debug("TCPGameClient failed to sync resources. Terminating GameServer.");
         gs.Stop();
     }
     while (TCPSock != -1) {
