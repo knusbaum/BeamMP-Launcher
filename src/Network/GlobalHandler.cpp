@@ -122,9 +122,9 @@ void ServerSend(TCPGameClient &tgc, std::string Data, bool Rel) {
 
 void GameServer::NetReset() {
     if (this == nullptr) {
-		// TODO(kjn): HACK
+        // TODO(kjn): HACK
         return;
-	}        
+    }
     TCPTerminate = false;
     GConnected = false;
     Terminate = false;
@@ -140,7 +140,7 @@ void GameServer::NetReset() {
     //     KillSocket(TCPSock);
     // }
     // TCPSock = -1;
-	tgc.Stop();
+    tgc.Stop();
     if (GSocket != (SOCKET)(-1)) {
         debug("Terminating GTCP Socket: " + std::to_string(GSocket));
         KillSocket(GSocket);
@@ -257,25 +257,25 @@ GameServer::GameServer(const std::string IP, int Port) : IP(IP), tgc(*this, IP, 
 
 GameServer::~GameServer() {
     Stop();
-	if (Thread.joinable()) {
-		debug("GameServer joining thread.");
-		Thread.join();
-		debug("GameServer DONE joining thread.");
-	}
-	NetReset();            
+    if (Thread.joinable()) {
+        debug("GameServer joining thread.");
+        Thread.join();
+        debug("GameServer DONE joining thread.");
+    }
+    NetReset();
 }
 
 void GameServer::Stop() {
-	debug("GameServer stopping.");
-	NetReset();
-	//Terminate = true;
-	//TCPTerminate = true;
-	debug("GameServer stopped.");
-}    
+    debug("GameServer stopping.");
+    NetReset();
+    //Terminate = true;
+    //TCPTerminate = true;
+    debug("GameServer stopped.");
+}
 
 void GameServer::Run() {
-		Thread = std::thread(&GameServer::start, this);
-}    
+    Thread = std::thread(&GameServer::start, this);
+}
 
 void GameServer::start() {
     GSocket = SetupListener();
@@ -292,7 +292,7 @@ void GameServer::start() {
         }
         if (CServer) {
             //ClientThread = std::make_unique<std::thread>(TCPClientMain, IP, Port);
-			tgc.Run();
+            tgc.Run();
         }
         CSocket = accept(GSocket, nullptr, nullptr);
         if (CSocket == -1) {
@@ -352,7 +352,7 @@ void GameServer::start() {
     //     ClientThread->join();
     //     debug("Client thread done");
     // }
-	tgc.Stop();
+    tgc.Stop();
     if (NetMainThread) {
         debug("Waiting for net main thread");
         NetMainThread->join();
