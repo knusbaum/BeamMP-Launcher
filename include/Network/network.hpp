@@ -59,6 +59,8 @@ public:
 	void NetReset();
 };
 
+class SyncError{};
+
 //void NetReset();
 extern bool Dev;
 extern int ping;
@@ -89,7 +91,7 @@ void GameSend(std::string_view Data);
 void SendLarge(TCPGameClient &tgc, std::string Data);
 //std::string TCPRcv(uint64_t Sock);
 //void SyncResources(uint64_t TCPSock);
-void SyncResources(TCPGameClient &tgc);
+bool SyncResources(TCPGameClient &tgc);
 std::string GetAddr(const std::string& IP);
 void ServerParser(std::string_view Data);
 std::string Login(const std::string& fields);

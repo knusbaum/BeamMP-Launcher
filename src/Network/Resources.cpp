@@ -41,7 +41,7 @@
 
 namespace fs = std::filesystem;
 
-void CheckForDir() {
+static void CheckForDir() {
     if (!fs::exists(CachingDirectory)) {
         try {
             fs::create_directories(CachingDirectory);
@@ -52,20 +52,22 @@ void CheckForDir() {
         }
     }
 }
-void WaitForConfirm() {
+
+static void WaitForConfirm() {
     while (!Terminate && !ModLoaded) {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     ModLoaded = false;
 }
 
-void Abord() {
-    Terminate = true;
-    TCPTerminate = true;
-    info("Terminated!");
+static void Abord() {
+    //Terminate = true;
+    //TCPTerminate = true;
+    info("Resources::Abord()!");
+	throw SyncError();
 }
 
-std::string Auth(TCPGameClient &tgc) {
+static std::string Auth(TCPGameClient &tgc) {
     tgc.TCPSend("VC" + GetVer());
 
     auto Res = tgc.TCPRcv();
@@ -122,7 +124,7 @@ std::string Auth(TCPGameClient &tgc) {
     return Res;
 }
 
-void UpdateUl(bool D, const std::string& msg) {
+static void UpdateUl(bool D, const std::string& msg) {
     if (D)
         UlStatus = "UlDownloading Resource " + msg;
     else
@@ -131,28 +133,47 @@ void UpdateUl(bool D, const std::string& msg) {
 
 float DownloadSpeed = 0;
 
-void AsyncUpdate(uint64_t& Rcv, uint64_t Size, const std::string& Name) {
-    do {
-        double pr = double(Rcv) / double(Size) * 100;
-        std::string Per = std::to_string(trunc(pr * 10) / 10);
-        std::string SpeedString = "";
-        if (DownloadSpeed > 0.01) {
-            std::stringstream ss;
-            ss << " at " << std::setprecision(1) << std::fixed << DownloadSpeed << " Mbit/s";
-            SpeedString = ss.str();
-        }
-        UpdateUl(true, Name + " (" + Per.substr(0, Per.find('.') + 2) + "%)" + SpeedString);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    } while (!Terminate && Rcv < Size);
-}
+class AsyncUpdater {    
+    bool go = true;
+	uint64_t& Rcv;
+    uint64_t Size;
+    const std::string& Name;
+    std::thread T;
+public:    
+	AsyncUpdater(uint64_t& Rcv, uint64_t Size, const std::string& Name)
+		: Rcv(Rcv)
+		, Size(Size)
+		, Name(Name) {
+		T = std::thread(&AsyncUpdater::update, this);
+	}
+	~AsyncUpdater() {
+		go = false;
+        T.join();
+	}            
+	void update() {
+		do {
+			double pr = double(Rcv) / double(Size) * 100;
+			std::string Per = std::to_string(trunc(pr * 10) / 10);
+			std::string SpeedString = "";
+			if (DownloadSpeed > 0.01) {
+				std::stringstream ss;
+				ss << " at " << std::setprecision(1) << std::fixed << DownloadSpeed << " Mbit/s";
+				SpeedString = ss.str();
+			}
+			UpdateUl(true, Name + " (" + Per.substr(0, Per.find('.') + 2) + "%)" + SpeedString);
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		} while (go && Rcv < Size);
+	}
+};
 
 // MICROSOFT, I DONT CARE, WRITE BETTER CODE
 #undef min
 
-std::vector<char> TCPRcvRaw(SOCKET Sock, uint64_t& GRcv, uint64_t Size) {
+static std::vector<char> TCPRcvRaw(SOCKET Sock, uint64_t& GRcv, uint64_t Size) {
     if (Sock == -1) {
-        Terminate = true;
+        //Terminate = true;
         UUl("Invalid Socket");
+		throw SyncError();
         return {};
     }
     std::vector<char> File(Size);
@@ -172,7 +193,8 @@ std::vector<char> TCPRcvRaw(SOCKET Sock, uint64_t& GRcv, uint64_t Size) {
             }
             UUl("Socket Closed Code 1");
             KillSocket(Sock);
-            Terminate = true;
+            // Terminate = true;
+			throw SyncError();
             return {};
         }
         Rcv += Temp;
@@ -191,17 +213,21 @@ std::vector<char> TCPRcvRaw(SOCKET Sock, uint64_t& GRcv, uint64_t Size) {
     } while (Rcv < Size && !Terminate);
     return File;
 }
-void MultiKill(SOCKET Sock, SOCKET Sock1) {
+
+static void MultiKill(SOCKET Sock, SOCKET Sock1) {
     KillSocket(Sock1);
     KillSocket(Sock);
-    Terminate = true;
+    // Terminate = true;
+	throw SyncError();
 }
-SOCKET InitDSock() {
+
+static SOCKET InitDSock() {
     SOCKET DSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     SOCKADDR_IN ServerAddr;
     if (DSock < 1) {
         KillSocket(DSock);
-        Terminate = true;
+        // Terminate = true;
+		throw SyncError();
         return 0;
     }
     ServerAddr.sin_family = AF_INET;
@@ -209,31 +235,34 @@ SOCKET InitDSock() {
     inet_pton(AF_INET, LastIP.c_str(), &ServerAddr.sin_addr);
     if (connect(DSock, (SOCKADDR*)&ServerAddr, sizeof(ServerAddr)) != 0) {
         KillSocket(DSock);
-        Terminate = true;
+        // Terminate = true;
+		throw SyncError();
         return 0;
     }
     char Code[2] = { 'D', char(ClientID) };
     if (send(DSock, Code, 2, 0) != 2) {
         KillSocket(DSock);
-        Terminate = true;
+        // Terminate = true;
+		throw SyncError();
         return 0;
     }
     return DSock;
 }
 
-std::vector<char> SingleNormalDownload(TCPGameClient &tgc, uint64_t Size, const std::string& Name) {
+static std::vector<char> SingleNormalDownload(TCPGameClient &tgc, uint64_t Size, const std::string& Name) {
     DownloadSpeed = 0;
 
     uint64_t GRcv = 0;
-
-    std::thread Au([&] { AsyncUpdate(GRcv, Size, Name); });
+	//bool go = true;
+        // std::thread Au([&] { AsyncUpdate(go, GRcv, Size, Name); });
+	AsyncUpdater aud(GRcv, Size, Name);
 
     const std::vector<char> MData = TCPRcvRaw(tgc.Sock(), GRcv, Size);
 
     if (MData.empty()) {
         KillSocket(tgc.Sock()); // TODO(kjn): Don't kill sockets from another object
-        Terminate = true;
-        Au.join();
+        // Terminate = true;        
+		throw SyncError();
         return {};
     }
 
@@ -241,17 +270,15 @@ std::vector<char> SingleNormalDownload(TCPGameClient &tgc, uint64_t Size, const 
     GRcv = MData.size();
     if (GRcv != Size) {
         error("Something went wrong during download; didn't get enough data. Expected " + std::to_string(Size) + " bytes, got " + std::to_string(GRcv) + " bytes instead");
-        Terminate = true;
-        Au.join();
+        // Terminate = true;
+		throw SyncError();
         return {};
     }
-
-    Au.join();
     return MData;
 }
 
 //TODO(kjn): This is gross, and it's killing MSock and DSock even though it doesn't own them.
-std::vector<char> MultiDownload(SOCKET MSock, SOCKET DSock, uint64_t Size, const std::string& Name) {
+static std::vector<char> MultiDownload(SOCKET MSock, SOCKET DSock, uint64_t Size, const std::string& Name) {
     DownloadSpeed = 0;
 
     uint64_t GRcv = 0;
@@ -259,14 +286,14 @@ std::vector<char> MultiDownload(SOCKET MSock, SOCKET DSock, uint64_t Size, const
     uint64_t MSize = Size / 2;
     uint64_t DSize = Size - MSize;
 
-    std::thread Au([&] { AsyncUpdate(GRcv, Size, Name); });
+	AsyncUpdater aud(GRcv, Size, Name);
 
     const std::vector<char> MData = TCPRcvRaw(MSock, GRcv, MSize);
 
     if (MData.empty()) {
         MultiKill(MSock, DSock);
-        Terminate = true;
-        Au.join();
+        // Terminate = true;
+		throw SyncError();
         return {};
     }
 
@@ -274,8 +301,8 @@ std::vector<char> MultiDownload(SOCKET MSock, SOCKET DSock, uint64_t Size, const
 
     if (DData.empty()) {
         MultiKill(MSock, DSock);
-        Terminate = true;
-        Au.join();
+        // Terminate = true;
+		throw SyncError();
         return {};
     }
 
@@ -283,12 +310,10 @@ std::vector<char> MultiDownload(SOCKET MSock, SOCKET DSock, uint64_t Size, const
     GRcv = MData.size() + DData.size();
     if (GRcv != Size) {
         error("Something went wrong during download; didn't get enough data. Expected " + std::to_string(Size) + " bytes, got " + std::to_string(GRcv) + " bytes instead");
-        Terminate = true;
-        Au.join();
+        // Terminate = true;
+		throw SyncError();
         return {};
     }
-
-    Au.join();
 
     std::vector<char> Result {};
     Result.insert(Result.begin(), MData.begin(), MData.end());
@@ -296,10 +321,11 @@ std::vector<char> MultiDownload(SOCKET MSock, SOCKET DSock, uint64_t Size, const
     return Result;
 }
 
-void InvalidResource(const std::string& File) {
+static void InvalidResource(const std::string& File) {
     UUl("Invalid mod \"" + File + "\"");
     warn("The server tried to sync \"" + File + "\" that is not a .zip file!");
-    Terminate = true;
+    // Terminate = true;
+	throw SyncError();
 }
 
 struct ModInfo {
@@ -342,7 +368,7 @@ struct ModInfo {
 
 nlohmann::json modUsage = {};
 
-void UpdateModUsage(const std::string& fileName) {
+static void UpdateModUsage(const std::string& fileName) {
     try {
         fs::path usageFile = CachingDirectory / "mods.json";
 
@@ -386,7 +412,7 @@ void UpdateModUsage(const std::string& fileName) {
 }
 
 
-void NewSyncResources(TCPGameClient &tgc, const std::string& Mods, const std::vector<ModInfo> ModInfos) {
+static void NewSyncResources(TCPGameClient &tgc, const std::string& Mods, const std::vector<ModInfo> ModInfos) {
     if (ModInfos.empty()) {
         CoreSend("L");
         tgc.TCPSend("Done");
@@ -441,7 +467,8 @@ void NewSyncResources(TCPGameClient &tgc, const std::string& Mods, const std::ve
         }
         if (ModInfoIter->Hash.length() < 8 || ModInfoIter->HashAlgorithm != "sha256") {
             error("Unsupported hash algorithm or invalid hash for '" + ModInfoIter->FileName + "'");
-            Terminate = true;
+            // Terminate = true;
+			throw SyncError();
             return;
         }
         auto FileName = std::filesystem::path(ModInfoIter->FileName).stem().string() + "-" + ModInfoIter->Hash.substr(0, 8) + std::filesystem::path(ModInfoIter->FileName).extension().string();
@@ -471,7 +498,8 @@ void NewSyncResources(TCPGameClient &tgc, const std::string& Mods, const std::ve
                 UpdateModUsage(FileName);
             } catch (std::exception& e) {
                 error("Failed copy to the mods folder! " + std::string(e.what()));
-                Terminate = true;
+                // Terminate = true;
+				throw SyncError();
                 continue;
             }
             WaitForConfirm();
@@ -507,7 +535,8 @@ void NewSyncResources(TCPGameClient &tgc, const std::string& Mods, const std::ve
                 UpdateModUsage(FileName);
             } catch (std::exception& e) {
                 error("Failed copy to the mods folder! " + std::string(e.what()));
-                Terminate = true;
+                // Terminate = true;
+				throw SyncError();
                 continue;
             }
             WaitForConfirm();
@@ -519,7 +548,8 @@ void NewSyncResources(TCPGameClient &tgc, const std::string& Mods, const std::ve
 
             error(message);
             UUl(message);
-            Terminate = true;
+            // Terminate = true;
+			throw SyncError();
             return;
         }
 
@@ -531,15 +561,17 @@ void NewSyncResources(TCPGameClient &tgc, const std::string& Mods, const std::ve
 
             std::string Data = tgc.TCPRcv();
             if (Data == "CO" || Terminate) {
-                Terminate = true;
+                // Terminate = true;
                 UUl("Server cannot find " + FName);
+				throw SyncError();                
                 break;
             }
 
             if (Data != "AG") {
                 UUl("Received corrupted download confirmation, aborting download.");
                 debug("Corrupted download confirmation: " + Data);
-                Terminate = true;
+                // Terminate = true;
+				throw SyncError();
                 break;
             }
 
@@ -560,12 +592,14 @@ void NewSyncResources(TCPGameClient &tgc, const std::string& Mods, const std::ve
             // 2. verify size and hash
             if (std::filesystem::file_size(PathToSaveTo) != DownloadedFile.size()) {
                 error(beammp_wide("Failed to write the entire file '") + beammp_fs_string(PathToSaveTo) + beammp_wide("' correctly (file size mismatch)"));
-                Terminate = true;
+                // Terminate = true;
+				throw SyncError();                
             }
 
             if (Utils::GetSha256HashReallyFastFile(PathToSaveTo) != ModInfoIter->Hash) {
                 error(beammp_wide("Failed to write or download the entire file '") + beammp_fs_string(PathToSaveTo) + beammp_wide("' correctly (hash mismatch)"));
-                Terminate = true;
+                // Terminate = true;
+				throw SyncError();                
             }
         } while (fs::file_size(PathToSaveTo) != ModInfoIter->FileSize && !Terminate);
         if (!Terminate) {
@@ -595,7 +629,7 @@ void NewSyncResources(TCPGameClient &tgc, const std::string& Mods, const std::ve
     }
 }
 
-void SyncResources(TCPGameClient &tgc) {
+static void _syncResources(TCPGameClient& tgc) {
     std::string Ret = Auth(tgc);
 
     debug("Mod info: " + Ret);
@@ -687,7 +721,8 @@ void SyncResources(TCPGameClient &tgc) {
                     UpdateModUsage(modname);
                 } catch (std::exception& e) {
                     error("Failed copy to the mods folder! " + std::string(e.what()));
-                    Terminate = true;
+                    // Terminate = true;
+					throw SyncError();                    
                     continue;
                 }
                 WaitForConfirm();
@@ -703,7 +738,8 @@ void SyncResources(TCPGameClient &tgc) {
 
             std::string Data = tgc.TCPRcv();
             if (Data == "CO" || Terminate) {
-                Terminate = true;
+                // Terminate = true;
+				throw SyncError();                
                 UUl("Server cannot find " + FName);
                 break;
             }
@@ -724,7 +760,8 @@ void SyncResources(TCPGameClient &tgc) {
             // 2. verify size
             if (std::filesystem::file_size(PathToSaveTo) != DownloadedFile.size()) {
                 error(beammp_wide("Failed to write the entire file '") + beammp_fs_string(PathToSaveTo) + beammp_wide("' correctly (file size mismatch)"));
-                Terminate = true;
+                // Terminate = true;
+				throw SyncError();                
             }
         } while (fs::file_size(PathToSaveTo) != std::stoull(*FS) && !Terminate);
         if (!Terminate) {
@@ -753,4 +790,15 @@ void SyncResources(TCPGameClient &tgc) {
         UlStatus = "Ulstart";
         info("Connection Terminated!");
     }
+}
+
+
+bool SyncResources(TCPGameClient& tgc) {
+    try {
+        _syncResources(tgc);
+    } catch (SyncError e) {
+        debug("############################################### SyncError occurred. #########################################");
+		return false;
+    }
+	return true;    
 }
