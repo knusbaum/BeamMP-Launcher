@@ -48,25 +48,8 @@ std::string MStatus;
 bool ModLoaded;
 int ping = -1;
 SOCKET CoreSocket = -1;
-signed char confirmed = -1;
+std::atomic<signed char> confirmed = -1;
 std::unique_ptr<GameServer> gs;
-
-bool SecurityWarning() {
-    confirmed = -1;
-    CoreSend("WMODS_FOUND");
-
-    while (confirmed == -1)
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
-    if (confirmed == 1)
-        return true;
-
-    debug("(Core) Stopping GameServer.");
-    gs = nullptr;
-    ping = -1;
-
-    return false;
-}
 
 void StartSync(const std::string& Data) {
     std::string IP = GetAddr(Data.substr(1, Data.find(':') - 1));

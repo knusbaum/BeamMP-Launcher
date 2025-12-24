@@ -41,6 +41,20 @@
 
 namespace fs = std::filesystem;
 
+bool SecurityWarning() {
+    confirmed = -1;
+    CoreSend("WMODS_FOUND");
+
+    while (confirmed == -1)
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    if (confirmed == 1) {
+        return true;
+    }
+
+    throw SyncError();
+}
+
 static void CheckForDir() {
     if (!fs::exists(CachingDirectory)) {
         try {

@@ -121,10 +121,6 @@ void ServerSend(TCPGameClient &tgc, std::string Data, bool Rel) {
 }
 
 void GameServer::NetReset() {
-    if (this == nullptr) {
-        // TODO(kjn): HACK
-        return;
-    }
     TCPTerminate = false;
     GConnected = false;
     Terminate = false;
