@@ -30,7 +30,6 @@
 
 std::chrono::time_point<std::chrono::high_resolution_clock> PingStart, PingEnd;
 bool GConnected = false;
-bool CServer = true;
 SOCKET CSocket = -1;
 SOCKET GSocket = -1;
 std::string magic;
@@ -136,6 +135,11 @@ void GameServer::NetReset() {
         KillSocket(GSocket);
     }
     GSocket = -1;
+    if (CSocket != (SOCKET)(-1)) {
+        debug("Terminating GTCP Connection: " + std::to_string(CSocket));
+        KillSocket(CSocket);
+    }
+    CSocket = -1;
 }
 
 SOCKET SetupListener() {
@@ -249,12 +253,6 @@ void ServerParser(std::string_view Data) {
     ParserAsync(Data);
 }
 
-void NetMain(TCPGameClient *tgc, const std::string& IP, int Port) {
-    UDPClientMain(tgc, IP, Port);
-    CServer = true;
-    Terminate = true;
-    info("Connection Terminated!");
-}
 GameServer::GameServer(const std::string IP, int Port) : IP(IP), tgc(*this, IP, Port) {
     this->Port = Port;
 }
@@ -305,7 +303,7 @@ void GameServer::start() {
         debug("(Proxy) Game Connected!");
         GConnected = true;
         if (CServer) {
-            NetMainThread = std::make_unique<std::thread>(NetMain, &tgc, IP, Port);
+            NetMainThread = std::make_unique<std::thread>(UDPClientMain, this, &tgc, IP, Port);
             CServer = false;
         }
         int32_t Size, Rcv;

@@ -49,6 +49,7 @@ private:
 	int Port;
 	std::thread Thread;
 	TCPGameClient tgc;
+    bool CServer = true;
 
 	void start();
 public:
@@ -91,5 +92,5 @@ bool SyncResources(TCPGameClient &tgc);
 std::string GetAddr(const std::string& IP);
 void ServerParser(std::string_view Data);
 std::string Login(const std::string& fields);
-void UDPClientMain(TCPGameClient *tgc, const std::string& IP, int Port);
+void UDPClientMain(GameServer *gs, TCPGameClient *tgc, const std::string& IP, int Port);
 void CoreSend(std::string data);

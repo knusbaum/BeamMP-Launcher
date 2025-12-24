@@ -78,11 +78,13 @@ void UDPRcv() {
     Ret[Rcv] = 0;
     UDPParser(std::string_view(Ret.data(), Rcv));
 }
-void UDPClientMain(TCPGameClient *tgc, const std::string& IP, int Port) {
+void UDPClientMain(GameServer *gs, TCPGameClient *tgc, const std::string& IP, int Port) {
 #ifdef _WIN32
     WSADATA data;
     if (WSAStartup(514, &data)) {
         error("Can't start Winsock!");
+        gs->Stop();
+        info("UDP Handler Terminated.");
         return;
     }
 #endif
@@ -101,9 +103,10 @@ void UDPClientMain(TCPGameClient *tgc, const std::string& IP, int Port) {
     debug("Starting UDP receive loop");
     while (!Terminate) {
         UDPRcv();
-	//debug("UDP receive loop received a message.");
     }
     debug("UDP receive loop done");
     KillSocket(UDPSock);
     WSACleanup();
+    gs->Stop();
+    info("UDP Handler Terminated.");
 }
