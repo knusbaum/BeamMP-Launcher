@@ -24,40 +24,40 @@ class GameServer;
 
 class TCPGameClient {
 private:
-	SOCKET TCPSock = -1;
-	const std::string IP;
-	int Port;
-	std::thread Thread;
-	GameServer &gs;
+    SOCKET TCPSock = -1;
+    const std::string IP;
+    int Port;
+    std::thread Thread;
+    GameServer &gs;
 
-	bool CheckBytes(int32_t Bytes);
-	void start();
+    bool CheckBytes(int32_t Bytes);
+    void start();
 public:
-	TCPGameClient(GameServer &gs, const std::string IP, int Port);
-	~TCPGameClient();
-	void Run();
-	void Stop();
-	void TCPSend(const std::string& Data);
-	std::string TCPRcv();
-	SOCKET Sock();
-	bool Running();
+    TCPGameClient(GameServer &gs, const std::string IP, int Port);
+    ~TCPGameClient();
+    void Run();
+    void Stop();
+    void TCPSend(const std::string& Data);
+    std::string TCPRcv();
+    SOCKET Sock();
+    bool Running();
 };
 
 class GameServer {
 private:
-	const std::string IP;
-	int Port;
-	std::thread Thread;
-	TCPGameClient tgc;
+    const std::string IP;
+    int Port;
+    std::thread Thread;
+    TCPGameClient tgc;
     bool CServer = true;
 
-	void start();
+    void start();
 public:
-	GameServer(const std::string IP, int Port);
-	~GameServer();
-	void Run();
-	void Stop();
-	void NetReset();
+    GameServer(const std::string IP, int Port);
+    ~GameServer();
+    void Run();
+    void Stop();
+    void NetReset();
 };
 
 class SyncError{};
